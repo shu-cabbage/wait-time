@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="ja_JP">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width">
+        <title>管理</title>
+        <script src="/socket.io/socket.io.js"></script>
+        <link rel="stylesheet" href="mgmt.css">
+        <style id="success_alert"></style>
+    </head>
+    <body>
+        <h1>管理</h1>
+        <hr>
+
+        <button id="add_store" onclick="javascript:document.getElementById('add_store_dialog').showModal(); document.getElementById('btn_add_store_ok').disabled = 'disable';" style="margin: 30px 0px 15px 0px; padding: 5px;">出店を追加する</button>
+        <dialog id="add_store_dialog">
+            <div class="dialog_window_extent">
+                <div>出店の追加</div>
+                <hr>
+                <label for="store_name">店名</label>
+                <input type="text" id="store_name" autofocus>
+                <div id="input_store_name">
+                    <button onclick="javascript:document.getElementById('store_name').value = ''; document.getElementById('add_store_dialog').close();">中止</button>
+                    <button onclick="add_store()" style="margin-left: 10px;" id="btn_add_store_ok">決定</button>
+                </div>
+            </div>
+        </dialog>
+
+        <dialog id="edit_store_dialog">
+            <div class="dialog_window_extent">
+                <div id="edit_title"></div>
+                <hr>
+                <div id="edit_store_name_div" style="display: none;">
+                    <div style="display: flex;"><p id="old_store_name"></p><p> の名称変更</p></div>
+                    <input type="text" id="new_store_name" autofocus>
+                </div>
+                <div id="delete_store_div">
+                    <div style="display: flex;"><p id="del_store_name"></p><p> を削除</p></div>
+                </div>
+
+                <div>
+                    <input type="button" value="中止" onclick="javascript:document.getElementById('edit_store_dialog').close();">
+                    <input type="button" value="OK" id="btn_edit_ok" onclick="confirm_ok()" style="margin-left: 10px;">
+                </div>
+            </div>
+        </dialog>
+
+        <div id="scroll_bar_width">
+            <table id="main_table">
+                <thead>
+                    <tr>
+                        <th>出店名</th>
+                        <th>現待ち時間(分)</th>
+                        <th>総購入者数(人)</th>
+                        <th>入力フォームURL</th>
+                        <th>販売状況</th>
+                        <th>編集</th>
+                    </tr>
+                </thead>
+                <tbody id="store_list"></tbody>
+            </table>
+        </div>
+    </body>
+    <script>
+        const edit_store_dialog = document.getElementById('edit_store_dialog');
+        const edit_title = document.getElementById("edit_title");
+        const edit_store_name_div = document.getElementById("edit_store_name_div");
+        const delete_store_div = document.getElementById("delete_store_div");
+        const btn_edit_ok = document.getElementById("btn_edit_ok");
+        const socket = io();
+        let store_data = [];
+        const json_path = "./../foods.json";
+
+        document.querySelectorAll("dialog").forEach(data => { //ダイアログ要素の外をクリックした時ダイアログを閉じる
+            data.addEventListener("click", function(event){
+                if(event.target.closest(".dialog_window_extent") === null){
+                    data.close();
+                };
+            });
+        });
+
+        function edit_func(event){
+            btn_edit_ok.dataset.status = "edit";
+            btn_edit_ok.dataset.store = event.target.value;
+            edit_store_dialog.showModal();
+            edit_title.textContent = "名所変更";
+            document.getElementById('new_store_name').value = '';
+            document.getElementById("old_store_name").textContent = event.target.value;
+            delete_store_div.style.display = "none";
+            edit_store_name_div.style.display = "block";
+            btn_edit_ok.disabled = 'disabled';
+        }
+
+        function delete_func(event){
+            btn_edit_ok.dataset.status = "del";
+            btn_edit_ok.dataset.store = event.target.value;
+            edit_store_dialog.showModal();
+            btn_edit_ok.disabled = null;
+            edit_title.textContent = "削除";
+            document.getElementById("del_store_name").textContent = event.target.value;
+            edit_store_name_div.style.display = "none";
+            delete_store_div.style.display = "block";
+        }
+
+        function confirm_ok(){
+            if(btn_edit_ok.dataset.status == "edit"){
+                socket.emit("edit_delete_func", {edit_status:"edit", store_name: btn_edit_ok.dataset.store, new_store_name: document.getElementById("new_store_name").value});
+            }else if(btn_edit_ok.dataset.status == "del"){
+                socket.emit("edit_delete_func", {edit_status:"delete", store_name: btn_edit_ok.dataset.store});
+            }
+            edit_store_dialog.close();
+        }
+
+        document.getElementById("new_store_name").addEventListener("input", function (){
+            if(document.getElementById("new_store_name").value.length > 0){ //入力文字数が一字でもあればボタンを有効にする
+                btn_edit_ok.disabled = null;
+            }else{
+                btn_edit_ok.disabled = "disable";
+            }
+        });
+
+        document.getElementById("store_name").addEventListener("input", function(){
+            if(document.getElementById("store_name").value.length > 0){ //入力文字数が一字でもあればボタンを有効にする
+                document.getElementById("btn_add_store_ok").disabled = null;
+            }else{
+                document.getElementById("btn_add_store_ok").disabled = "disable";
+            }
+        });
+
+        socket.on("reload", () => {
+            doAjaxThings();
+        });
+
+        socket.on("update_waiting_time", (foodname) => {
+            update_waiting_time(foodname);
+        });
+
+        function add_store(){ //新規追加
+            let new_store_name = document.getElementById("store_name").value;
+            document.getElementById('store_name').value = '';
+            document.querySelector("dialog").close();
+            let new_store_data = {
+                food : new_store_name,
+                time : 0,
+                person : 0,
+                total : 0,
+                url: "",
+                sell_status: "selling",
+            }
+            store_data.push();
+            show_store_detail({foods:store_data}, false);
+            socket.emit("send_new_store_data", {newStoreData: new_store_data});
+        }
+
+        function makeRequest(method, url){
+            return new Promise(function (resolve, reject){
+                let xhr = new XMLHttpRequest();
+                xhr.open(method, url);
+                xhr.onload = function (){
+                    if(this.status >= 200 && this.status < 300){
+                        resolve(JSON.parse(xhr.response));
+                    }else{
+                        reject({
+                            status: this.status,
+                            statusText: xhr.statusText
+                        });
+                    }
+                }
+                xhr.onerror = function (){
+                    reject({
+                        status: this.status,
+                        statusText: this.statusText
+                    });
+                }
+                xhr.send();
+            });
+        }
+
+        async function doAjaxThings(){
+            let result = await makeRequest("GET", json_path);
+            if(!navigator.userAgent.match(/iPhone|Android.+Mobile/)){
+                document.querySelector("#success_alert").insertAdjacentHTML("beforeend", `td {width: 130px}`);
+            }
+            show_store_detail(result, true);
+        }
+
+        document.addEventListener("DOMContentLoaded", function(){ //ページ読み込み時
+            document.getElementById("main_table").style.height = window.innerHeight - 190 + "px";
+            doAjaxThings();
+        });
+
+        async function update_waiting_time(foodName){ //更新された時
+            let data = await makeRequest("GET", json_path);
+            for(let i = 0; i < data.foods.length; i++){
+                if(data.foods[i].food == foodName){ //該当する店を更新
+                    let waiting_time = document.getElementById(foodName + "_waiting_time"); //現在の待ち時間
+                    let total_purchasers = document.getElementById(foodName + "_total_purchasers"); //トータル来店者
+                    waiting_time.textContent = data.foods[i].time * data.foods[i].person;
+                    total_purchasers.textContent = data.foods[i].total;
+                    break;
+                }
+            }
+        }
+
+        async function CoptToClipboard(e){ //各店の入力フォームのURLをクリップボードにコピーする
+            let url_arr = e.target.value.split(".");
+            let store_url = location.protocol + "//" + location.host + "/" + url_arr[0] + "." + url_arr[1]; //url生成
+            navigator.clipboard.writeText(store_url); //クリップボードにコピー
+
+            /*x,y位置の調整をゴニョゴニョと*/
+            let left = e.target.getBoundingClientRect().x + window.pageXOffset - 1490;
+            let top = e.target.getBoundingClientRect().top + e.target.clientHeight + window.pageYOffset + 5;
+            if(navigator.userAgent.match(/iPhone|Android.+Mobile/)) left = 70;
+            let success_alert_style = `
+                .copy_bt_complete::before {
+	                top: ${top}px;
+	                left: ${left}px;
+                }
+                .copy_bt_complete::after {
+	                left: ${left}px;
+	                top: ${top - 3}px;
+                }
+            `;
+            document.getElementById("success_alert").insertAdjacentHTML("beforeend", success_alert_style);
+
+            e.target.classList.add('copy_bt_complete'); //インジケータを表示
+            setTimeout(()=> {
+		        e.target.classList.remove('copy_bt_complete'); //非表示
+	        }, 1500);
+        }
+
+        function show_store_detail(data, status){
+            const store_list = document.getElementById("store_list");
+            store_list.textContent = "";
+
+            if(status){ //情報に大きく更新があった場合
+                store_data = [];
+            }
+            for(let i = 0; i < data.foods.length; i++){
+                if(status){ //情報に大きく更新があった場合
+                    store_data.push({
+                        food : data.foods[i].food,
+                        time : data.foods[i].time,
+                        person : data.foods[i].person,
+                        total : data.foods[i].total,
+                        url : data.foods[i].url,
+                        sell_status : data.foods[i].sell_status,
+                    });
+                }
+                let tr = document.createElement("tr"); //出店毎の行
+
+                let td0 = document.createElement("td"); //出店名
+                td0.textContent = data.foods[i].food;
+                td0.style.padding = "0px 5px";
+
+                let td1 = document.createElement("td"); //待ち時間
+                td1.setAttribute("id", data.foods[i].food + "_waiting_time");
+                if(data.foods[i].sell_status == "soldout"){
+                    td1.textContent = "null";
+                }else{
+                    td1.textContent = data.foods[i].time * data.foods[i].person;
+                }
+
+                let td2 = document.createElement("td"); //総購入者数
+                td2.textContent = data.foods[i].total;
+                td2.setAttribute("id", data.foods[i].food + "_total_purchasers");
+
+                let td3 = document.createElement("td"); //入力フォームurl
+                let td3_btn = document.createElement("button"); //url
+                td3_btn.textContent = "出店フォームリンクをコピー";
+                td3_btn.value = data.foods[i].url;
+                td3_btn.setAttribute("onclick", "CoptToClipboard(event)");
+                td3.appendChild(td3_btn);
+
+                let td4 = document.createElement("td"); //販売状況
+                if(data.foods[i].sell_status == "soldout"){
+                    td4.textContent = "売り切れ";
+                }else{
+                    td4.textContent = "販売中";
+                }
+
+                let td5 = document.createElement("td"); //編集削除
+                let td5_btn_edit = document.createElement("button"); //編集
+                td5_btn_edit.textContent = "名称変更";
+                td5_btn_edit.value = data.foods[i].food;
+                td5_btn_edit.setAttribute("onclick", "edit_func(event)");
+                td5_btn_edit.style.margin = "5px 2px";
+                let td5_btn_del = document.createElement("button"); //削除
+                td5_btn_del.textContent = "削除";
+                td5_btn_del.value = data.foods[i].food;
+                td5_btn_del.setAttribute("onclick", "delete_func(event)");
+                td5_btn_del.style.margin = "5px 2px";
+                td5.appendChild(td5_btn_edit);
+                td5.appendChild(td5_btn_del);
+
+                tr.appendChild(td0);
+                tr.appendChild(td1);
+                tr.appendChild(td2);
+                tr.appendChild(td3);
+                tr.appendChild(td4);
+                tr.appendChild(td5);
+                store_list.appendChild(tr);
+            }
+
+            document.getElementById("scroll_bar_width").style.width = document.getElementsByTagName("thead")[0].clientWidth - 5 + "px";
+        }
+    </script>
+</html>

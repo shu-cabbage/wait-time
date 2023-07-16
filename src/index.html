@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="ja-JP">
+    <head>
+        <meta charset="utf-8">
+        <title>出店待ち時間</title>
+        <script src="/socket.io/socket.io.js"></script>
+        <style id="style_pc_smartPhone"></style>
+        <link rel="stylesheet" href="style/progress-list.css">
+        <!-- slider -->
+        <link rel="stylesheet" href="style/flickity.css" media="screen">
+        <link rel="stylesheet" href="style/slider.css">
+    </head>
+    <body>
+        <header style="text-align: center;">
+            <h1>待ち時間</h1>
+            <hr>
+        </header>
+
+        <div id="main_body"></div>
+    </body>
+    <script>
+        const socket = io();
+        let max_time_data = [];
+        let max_time = 0;
+        let num_of_lines = 8;
+        let cell_width = 0;
+        let isSmartPhone = false;
+        let store_arr_width = 300;
+
+        function scaler(){
+            document.querySelectorAll(".scale_harf_time").forEach(scaler_harf => {
+                scaler_harf.textContent = max_time/2; //メモリの最大値の半分
+            });
+            document.querySelectorAll(".scale_max_time").forEach(scaler_max => {
+                scaler_max.textContent = max_time; //メモリの最大値
+            });
+        }
+
+        function make_store_list(){
+            return new Promise(function(resolve, reject){
+                const cell_div = document.getElementById("main_body");
+                cell_div.textContent = ""; //一旦空にする
+
+                const store_list = document.createElement("div");
+                if(isSmartPhone){
+                    store_list.classList.add("gallery");
+                    store_list.classList.add("js-flickity");
+                    store_list.dataset.flickityOptions = '{ "wrapAround": true}';
+                    store_arr_width = 600;
+                }else{
+                    store_list.setAttribute("id", "store_block");
+                    store_list.style.marginLeft = "20px";
+                }
+
+                let num_of_blocks = 0;
+                if(max_time_data.length % num_of_lines != 0){ //店の数によていくつ列を作るか決める
+                    num_of_blocks = Math.floor(max_time_data.length / num_of_lines) + 1;
+                }else{
+                    num_of_blocks = Math.floor(max_time_data.length / num_of_lines);
+                }
+                document.querySelector("#style_pc_smartPhone").insertAdjacentHTML("beforeend", `#main_body{width: ${document.documentElement.clientWidth}px;}`);
+
+                for(let i = 0; i < num_of_blocks; i++){
+                    let store_block = document.createElement("div"); //一つの列
+                    store_block.classList.add("store_arr_block");
+                    store_block.classList.add("gallery-cell");
+
+                    let block = document.createElement("div"); //ここにグラフを入れる
+                    block.classList.add("store_arr");
+                    block.style.width = store_arr_width + "px"; //グラフの横幅
+
+                    /*目盛りの作成*/
+                    let scale = document.createElement("ul"); //目盛り
+                    scale.classList.add("scale0");
+                    let li0 = document.createElement("li");
+                    let li1 = document.createElement("li");
+                    scale.appendChild(li0);
+                    scale.appendChild(li1);
+
+                    let scale_index = document.createElement("div"); //目盛りの数字
+                    scale_index.classList.add("scale1");
+                    let index_text0 = document.createElement("p");
+                    index_text0.classList.add("scaler_text");
+                    index_text0.classList.add("scale_index");
+                    index_text0.textContent = "0";
+
+                    let index_text1 = document.createElement("p");
+                    index_text1.classList.add("scaler_text");
+                    index_text1.classList.add("scale_harf_time");
+                    index_text1.style.margin = "0px 35% 0px 0px";
+
+                    let index_text2 = document.createElement("p");
+                    index_text2.classList.add("scaler_text");
+                    index_text2.classList.add("scale_max_time");
+                    index_text2.style.marginRight = "0px";
+
+                    let index_test3 = document.createElement("p");
+                    index_test3.classList.add("scaler_text");
+                    index_test3.style.margin = "0px";
+                    index_test3.textContent = "(分)";
+
+                    scale_index.appendChild(index_text0);
+                    scale_index.appendChild(index_text1);
+                    scale_index.appendChild(index_text2);
+                    scale_index.appendChild(index_test3);
+                    /*目盛りの作成*/
+
+                    let scale_addition_height = 0;
+                    for(let j = 0; j < num_of_lines; j++){ //棒グラフを作っていく
+                        if(j + num_of_lines * i == max_time_data.length) break; //最後まで行ったら抜ける
+                        if(i == num_of_blocks - 1){ //最後の列 上んとこのスペーサーを作る
+                            if(j == 0){//make div
+                                let null_div = document.createElement("div");
+                                null_div.setAttribute("id", "spacer");
+                                block.appendChild(null_div);
+                            }
+                            if(isSmartPhone){
+                                scale_addition_height += 182;
+                            }else{
+                                scale_addition_height += 90;
+                            }
+                            if(j == max_time_data.length - num_of_lines * i - 1){ //最後の店情報になった時,一列の高さから表示ぶんを引く
+                                if(isSmartPhone){
+                                    document.querySelector("#style_pc_smartPhone").insertAdjacentHTML("beforeend", `#spacer{height: ${1274 - scale_addition_height}px;}`);
+                                }else{
+                                    document.querySelector("#style_pc_smartPhone").insertAdjacentHTML("beforeend", `#spacer{height: ${720 - scale_addition_height}px;}`);
+                                }
+                            }
+                        }
+                        let foods = max_time_data[j + num_of_lines * i].food;
+
+                        let food_div = document.createElement("div"); //店名とグラフ一本の塊
+                        food_div.classList.add("store_progress");
+                        let title_p = document.createElement("p"); //店名
+                        title_p.classList.add("store_name");
+                        title_p.textContent = foods;
+                        let progress_div = document.createElement("div"); //棒グラフ
+                        progress_div.classList.add("scale");
+                        let scale_div = document.createElement("div"); //色付きバー
+                        scale_div.classList.add("scale_value");
+                        scale_div.style.width = "0px";
+                        scale_div.setAttribute("id", foods + "_bar");
+                        let announce_p = document.createElement("p"); //待ち時間，売り切れ表示
+                        announce_p.classList.add("show_time");
+                        announce_p.setAttribute("id", foods + "_noti");
+
+                        if(max_time_data[j + num_of_lines * i].sell_status == "soldout"){ //売り切れの時
+                            announce_p.textContent = "売り切れ";
+                            scale_div.style.width = "0px";
+                        }else{ //販売中は待ち時間を出す
+                            let time = max_time_data[j + num_of_lines * i].scale_time;
+                            announce_p.textContent = time + "分待ち";
+                            let scale_width = 300;
+                            if(isSmartPhone){
+                                scale_width = 600;
+                            }
+                            scale_div.style.width = time / max_time * scale_width + "px"; //バーの幅に対する比を出す
+                            if(20 < time){ //20分より大きくなったら赤
+                                scale_div.style.backgroundColor = "#FF3300";
+                            }else if(15 < time){ //15-20分は黄色
+                                scale_div.style.backgroundColor = "#FFFF33";
+                            }else{ //15分以下は青
+                                scale_div.style.backgroundColor = "#33CCFF";
+                            }
+                        }
+
+                        progress_div.appendChild(scale_div);
+                        progress_div.appendChild(announce_p);
+                        food_div.appendChild(title_p);
+                        food_div.appendChild(progress_div);
+                        block.appendChild(food_div);
+                    }
+
+                    store_block.appendChild(block);
+                    store_block.appendChild(scale);
+                    store_block.appendChild(scale_index);
+                    store_list.appendChild(store_block);
+                }
+                cell_div.appendChild(store_list);
+
+                if(isSmartPhone){ //スマホはフリック対応させる
+                    let script = document.createElement("script");
+                    script.src = "flickity.pkgd.min.js";
+                    document.getElementsByTagName("head")[0].appendChild(script);
+                }
+
+                scaler(); //目盛りの数字を計算しにいく
+                resolve();
+            });
+        }
+
+        let old_maxTime;
+        function update_waiting_time(foodName){ //更新された時
+            return new Promise(function(resolve, reject){
+                scaler(); //目盛りの数字を計算しにいく
+                for(let i = 0; i < max_time_data.length; i++){
+                    if(max_time_data[i].food == foodName){ //更新された店
+                        let scale_div = document.getElementById(foodName + "_bar");
+                        let announce_p = document.getElementById(foodName + "_noti");
+                        if(max_time_data[i].sell_status == "soldout"){ //売り切れの時
+                            announce_p.textContent = "売り切れ";
+                            scale_div.style.width = "0px";
+                        }else{ //販売中は待ち時間を表示
+                            let time = max_time_data[i].scale_time;
+                            announce_p.textContent = time + "分待ち";
+                            let scale_width = 300;
+                            if(isSmartPhone){
+                                scale_width = 600;
+                            }
+                            scale_div.style.width = time / max_time * scale_width + "px"; //バーの幅に対する比を出す
+                            if(20 < time){ //20分より大きくなったら赤
+                                scale_div.style.backgroundColor = "#FF3300";
+                            }else if(15 < time){ //15-20分は黄色
+                                scale_div.style.backgroundColor = "#FFFF33";
+                            }else{ //15分以下は青
+                                scale_div.style.backgroundColor = "#33CCFF";
+                            }
+                        }
+                    }else if(old_maxTime != max_time){ //更新されてない店，スケールが変わるかもしれないからこっちも書き直し
+                        let food = max_time_data[i].food;
+                        let scale_div = document.getElementById(food + "_bar");
+                        let announce_p = document.getElementById(food + "_noti");
+                        if(max_time_data[i].sell_status == "soldout"){ //売り切れの時
+                            announce_p.textContent = "売り切れ";
+                            scale_div.style.width = "0px";
+                        }else{ //販売中は待ち時間を表示
+                            let time = max_time_data[i].scale_time;
+                            announce_p.textContent = time + "分待ち";
+                            let scale_width = 300;
+                            if(isSmartPhone){
+                                scale_width = 600;
+                            }
+                            scale_div.style.width = time / max_time * scale_width + "px"; //バーの幅に対する比を出す
+                            if(20 < time){ //20分より大きくなったら赤
+                                scale_div.style.backgroundColor = "#FF3300";
+                            }else if(15 < time){ //15-20分は黄色
+                                scale_div.style.backgroundColor = "#FFFF33";
+                            }else{ //15分以下は青
+                                scale_div.style.backgroundColor = "#33CCFF";
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function sort_maximum(result){ //最大待ち時間をさがす
+            return new Promise(function (resolve, reject){
+                max_time_data = [];
+                max_time = 0;
+                let val = 0;
+                for(let i = 0; i < result.foods.length; i++){
+                    max_time_data.push({
+                        food : result.foods[i].food,
+                        scale_time : result.foods[i].time * result.foods[i].person,
+                        sell_status : result.foods[i].sell_status,
+                    });
+                    if(result.foods[i].sell_status !== "soldout"){ //売り切れは除外
+                        let buff = result.foods[i].time * result.foods[i].person;
+                        if(buff > max_time){ //前のと比較して大きいかどうか，大きければ値更新
+                            max_time = buff;
+                        }
+                    }else{
+                        val++;
+                    }
+                    if(val == max_time_data.length || max_time < 30){ //全て売り切れか，最大値が30未満の時は，最大値を30とする
+                        max_time = 30;
+                    }
+                }
+                if(max_time >= 30){ //最大値が30以上の時は，10増やす
+                    max_time += 10;
+                }
+                resolve();
+            });
+        }
+
+        let smartPhoneOrPc_css = function(width, height, storeDispInterval, scaleHeight, scalerFontSize, graphWidth){ //スマホとpcの時でサイズを変える
+            let style = `
+                .store_name{
+                    font-size: ${height}px;
+                }
+                .show_time{
+                    font-size: ${height - 14}px;
+                }
+                #main_body{
+                    width: ${width}px;
+                }
+                .scale{
+                    width: ${width}px;
+                    height: ${height - 5}px;
+                }
+                .scale_value{
+                    height: ${height - 5}px;
+                }
+                .store_progress{
+                    margin: 0px 0px ${storeDispInterval}px 0px;
+                }
+                .scale0 li:after {
+                    height: ${scaleHeight}px;
+                }
+                .scale0 li:last-child {
+                    height: ${scaleHeight}px;
+                }
+                .scaler_text{
+                    font-size: ${scalerFontSize}px;
+                }
+                .store_arr{
+                    border-left: ${graphWidth}px solid #000;
+                    border-bottom: ${graphWidth}px solid #000;
+                }
+                .scale0 li:last-child {
+                    border-right: ${graphWidth}px solid #000;
+                }
+                .scale0 li:after {
+                    width: ${graphWidth}px;
+                }`;
+            document.querySelector("#style_pc_smartPhone").insertAdjacentHTML("beforeend", style);
+        }
+
+        function SmartPhoneOrPC() {
+            if(navigator.userAgent.match(/iPhone|Android.+Mobile/)){
+                smartPhoneOrPc_css(600, 60, 40, 15, 35, 2);
+                isSmartPhone = true;
+                num_of_lines = 7;
+                document.querySelector("#style_pc_smartPhone").insertAdjacentHTML("beforeend", `h1{font-size: 60px;}`);
+            }else{
+                smartPhoneOrPc_css(300, 30, 20, 5, 16, 1);
+            }
+        }
+
+        function makeRequest(method, url){
+            return new Promise(function (resolve, reject){
+                let xhr = new XMLHttpRequest();
+                xhr.open(method, url);
+                xhr.onload = function (){
+                    if(this.status >= 200 && this.status < 300){
+                        resolve(JSON.parse(xhr.response));
+                    }else{
+                        reject({
+                            status: this.status,
+                            statusText: xhr.statusText
+                        });
+                    }
+                }
+                xhr.onerror = function (){
+                    reject({
+                        status: this.status,
+                        statusText: this.statusText
+                    });
+                }
+                xhr.send();
+            });
+        }
+
+        async function doAjaxThings(){
+            let result = await makeRequest("GET", "./foods.json");
+            sort_maximum(result);
+        }
+
+        document.addEventListener("DOMContentLoaded", async function(){ //ページ読み込み時
+            await SmartPhoneOrPC();
+            await doAjaxThings();
+            await make_store_list();
+        });
+
+        socket.on("reload", async function(){
+            await doAjaxThings();
+            await make_store_list();
+        });
+
+        socket.on("update_waiting_time", async function(data){
+            old_maxTime = max_time;
+            await doAjaxThings();
+            await update_waiting_time(data);
+        });
+    </script>
+</html>

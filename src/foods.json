@@ -1,0 +1,148 @@
+{
+    "foods": [
+        {
+            "food": "ramen",
+            "time": 10,
+            "person": 2,
+            "total": 3,
+            "url": "store/8c0137789a52ec06a268a5c78a568a37.html",
+            "sell_status": "selling"
+        },
+        {
+            "food": "yakisoba",
+            "time": 10,
+            "person": 5,
+            "total": 5,
+            "url": "store/43bd374cc43f95e91dcf9d367c63c59a.html",
+            "sell_status": "selling"
+        },
+        {
+            "food": "takotako",
+            "time": 0,
+            "person": 0,
+            "total": 0,
+            "url": "store/acddefcf6a90d3311cc016eac90773e0.html",
+            "sell_status": "selling"
+        },
+        {
+            "food": "スタバ",
+            "time": 0,
+            "person": 0,
+            "total": 0,
+            "url": "store/eb2f80a1106b12bc77b55b09b4f9cd71.html",
+            "sell_status": "selling"
+        },
+        {
+            "food": "ホットドッグ",
+            "time": 0,
+            "person": 0,
+            "total": 0,
+            "url": "store/4365665da4fbe5d23c78321b14e67147.html",
+            "sell_status": "selling"
+        },
+        {
+            "food": "qwertyuiop",
+            "time": 0,
+            "person": 0,
+            "total": 0,
+            "url": "store/86e86c31c660ad55eb27b7715a0ada59.html",
+            "sell_status": "selling"
+        },
+        {
+            "food": "asdfghjkl",
+            "time": 0,
+            "person": 0,
+            "total": 0,
+            "url": "store/8dea92cf75fb13746d89d797ef5aa6c5.html",
+            "sell_status": "selling"
+        },
+        {
+            "food": "zxcvbnm",
+            "time": 0,
+            "person": 0,
+            "total": 0,
+            "url": "store/e4bf10b50576570fa48b679b385f223e.html",
+            "sell_status": "selling"
+        },
+        {
+            "food": "qwertyhujikol",
+            "time": 0,
+            "person": 0,
+            "total": 0,
+            "url": "store/78b6a910c9097685264254ab4ea89ee4.html",
+            "sell_status": "selling"
+        },
+        {
+            "food": "apple",
+            "time": 0,
+            "person": 0,
+            "total": 0,
+            "url": "store/301e8f6aad2745cd88ec57cb138a31a3.html",
+            "sell_status": "selling"
+        },
+        {
+            "food": "awa",
+            "time": 0,
+            "person": 0,
+            "total": 0,
+            "url": "store/9578c0cbcd0c5d27c0811411206a6b5d.html",
+            "sell_status": "selling"
+        },
+        {
+            "food": "php",
+            "time": 0,
+            "person": 0,
+            "total": 0,
+            "url": "store/f1adba7fb6d35fa2a267fa2d33fd725a.html",
+            "sell_status": "selling"
+        },
+        {
+            "food": "js",
+            "time": 0,
+            "person": 0,
+            "total": 0,
+            "url": "store/0a1cfe96eaf466790be21db0f2b6c55d.html",
+            "sell_status": "selling"
+        },
+        {
+            "food": "rgaga",
+            "time": 0,
+            "person": 0,
+            "total": 0,
+            "url": "store/308a90b757d32586c5c1a601093ab7ef.html",
+            "sell_status": "selling"
+        },
+        {
+            "food": "arhgnha",
+            "time": 0,
+            "person": 0,
+            "total": 0,
+            "url": "store/97899e5234e134da9fb410de36a557a5.html",
+            "sell_status": "selling"
+        },
+        {
+            "food": "rdahnhyj",
+            "time": 0,
+            "person": 0,
+            "total": 0,
+            "url": "store/dba76434a6fd44414141638ce572b07c.html",
+            "sell_status": "selling"
+        },
+        {
+            "food": "jyyatthd",
+            "time": 0,
+            "person": 0,
+            "total": 0,
+            "url": "store/00f80ae8834c03ef3eb0b14e2e3c9dd2.html",
+            "sell_status": "selling"
+        },
+        {
+            "food": "dbgar",
+            "time": 0,
+            "person": 0,
+            "total": 0,
+            "url": "store/01fa256c76e5400b5d284aa7c07f6539.html",
+            "sell_status": "selling"
+        }
+    ]
+}

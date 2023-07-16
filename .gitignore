@@ -1,0 +1,5 @@
+/node_modules
+/src/store/*.html
+/src/store/.gitkeep
+test*
+.DS_Store
