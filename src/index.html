@@ -3,7 +3,7 @@
     <head>
         <meta charset="utf-8">
         <title>出店待ち時間</title>
-        <script src="/socket.io/socket.io.js"></script>
+        <script src="/waiting-time/socket.io/socket.io.js"></script>
         <style id="style_pc_smartPhone"></style>
         <link rel="stylesheet" href="style/progress-list.css">
         <!-- slider -->
@@ -19,7 +19,7 @@
         <div id="main_body"></div>
     </body>
     <script>
-        const socket = io();
+        const socket = io("/", {path: location.pathname + "socket.io/"});
         let max_time_data = [];
         let max_time = 0;
         let num_of_lines = 8;

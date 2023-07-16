@@ -4,7 +4,7 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width">
         <title>管理</title>
-        <script src="/socket.io/socket.io.js"></script>
+        <script src="/waiting-time/socket.io/socket.io.js"></script>
         <link rel="stylesheet" href="mgmt.css">
         <style id="success_alert"></style>
     </head>
@@ -67,9 +67,9 @@
         const edit_store_name_div = document.getElementById("edit_store_name_div");
         const delete_store_div = document.getElementById("delete_store_div");
         const btn_edit_ok = document.getElementById("btn_edit_ok");
-        const socket = io();
+        const socket = io("/", {path: "/" + location.pathname.split("/")[1] + "/socket.io/"});
         let store_data = [];
-        const json_path = "./../foods.json";
+        const json_path = "./foods.json";
 
         document.querySelectorAll("dialog").forEach(data => { //ダイアログ要素の外をクリックした時ダイアログを閉じる
             data.addEventListener("click", function(event){

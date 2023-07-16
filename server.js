@@ -26,7 +26,7 @@ server.listen(PORT, () => {
 });
 
 io.on("connection", (socket) => {
-    console.log("connection: ", socket.id);
+    // console.log("connection: ", socket.id);
     socket.on("send_food_data", (data) => { //フォームからの送信
         sort_foods(data);
         socket.broadcast.emit("update_waiting_time", data.foodName);
@@ -98,7 +98,6 @@ function edit_foods(data){ //名称変更，削除
             }else{ //削除の時
                 fs.unlink(store_directory_path + masterData.foods[i].url.split("/")[1], (err) => { //ファイルを削除
                     if (err) throw err;
-                    console.log('deleted file');
                 });
                 masterData.foods.splice(i, 1); //jsonオブジェクトから削除
                 break;
@@ -130,7 +129,7 @@ function create_new_form(newName, file_name){ //フォーム作成
             <meta name="viewport" content="width=device-width">
             <title></title>
             <link rel="stylesheet" href="store.css">
-            <script src="/socket.io/socket.io.js"></script>
+            <script src="/waiting-time/socket.io/socket.io.js"></script>
         </head>
         <body>
             <h1>${newName}</h1>
@@ -156,7 +155,7 @@ function create_new_form(newName, file_name){ //フォーム作成
             </dialog>
         </body>
         <script>
-            const socket = io();
+            const socket = io("/", {path: "/" + location.pathname.split("/")[1] + "/socket.io/"});
             let foodName;
             let food_num_of_people = 0;
             let total_person = 0;
