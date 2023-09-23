@@ -45,11 +45,8 @@ ul{
     margin-left: -4px;
 }
 #main_body{
-    margin: 65px auto 0px auto;
+    margin: 20px auto 0px auto;
 }
 #store_block{
     display: flex;
 }
-/* .store_arr_block{
-    margin: 0px 10px 0px 10px;
-} */

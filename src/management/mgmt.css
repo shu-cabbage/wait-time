@@ -33,9 +33,6 @@ table tr:nth-child(odd) td{
 	width: max-content;
 	padding: 5px;
 	opacity: 0;
-	top: 30px;
-	left: 0;
-	right: 0;
 	margin: auto;
 	animation: copy_complete 3s linear .1s 1 ;
 }
@@ -45,13 +42,10 @@ table tr:nth-child(odd) td{
 	background-color: #C50003;
 	width: 10px;
 	height: 10px;
-	left: 0;
-	right: 0;
-	margin: auto;
-	top: 27px;
 	opacity: 0;
-	clip-path: polygon(50% 0,100% 50%,0% 50%);
+	margin: auto;
 	animation: copy_complete 3s linear .1s 1 ;
+	clip-path: polygon(50% 0,100% 50%,0% 50%);
 }
 
 @keyframes copy_complete {

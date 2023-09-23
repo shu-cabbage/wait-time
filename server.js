@@ -7,118 +7,106 @@ const server = http.Server(app);
 const PORT = process.env.PORT || 3000;
 const socketio = require("socket.io");
 const io = socketio(server);
-
-const data_file_path = "./src/foods.json";
+const mysql = require('mysql');
+require("dotenv").config({path: ".env"});
 const store_directory_path = "./src/store/";
 
-app.get("/", (req, res) => {
+const connection = mysql.createConnection({
+    host: '127.0.0.1',
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_DATABASE
+});
+connection.connect((err) => {
+    if(err) throw err;
+    console.log('Connected!');
+});
+
+app.get("/", function(req, res){
     res.sendFile(__dirname + "/src/index.html");
 });
-app.get("/mgmt", (req, res) => {
+app.get("/mgmt", function(req, res){
     res.sendFile(__dirname + "/src/management/management.html");
 });
 
 app.use(express.static(__dirname + "/src/management"));
 app.use(express.static(__dirname + "/src"));
 
-server.listen(PORT, () => {
+server.listen(PORT, function(){
     console.log("server on port %d", PORT);
 });
 
-io.on("connection", (socket) => {
+io.on("connection", function(socket){
     // console.log("connection: ", socket.id);
-    socket.on("send_food_data", (data) => { //フォームからの送信
-        sort_foods(data);
-        socket.broadcast.emit("update_waiting_time", data.foodName);
+    socket.on('get_store_data', function(){//ページを開いた時要求
+        connection.query('SELECT * FROM users', function(err, rows){//データベースすべて
+            if(err) throw err;
+            socket.emit("store_data", {data: rows});
+        });
     });
 
-    socket.on("send_new_store_data", (data) => { //新規作成
-        let masterData = JSON.parse(fs.readFileSync(data_file_path, "utf-8"));
-        let length = 16;
-        let file_hash = crypto.randomBytes(length).toString("hex");
-        let file_hash_status = true;
-        if(masterData.foods.length != 0){
-            do{ //同じファイル名ができなくなるまで生成し続ける
-                // let val = 0;
-                for(let i = 0; i < masterData.foods.length; i++){ //ファイル名固っぱりから見ていく
-                    if(masterData.foods[i].url.split("/")[1].split(".")[0] == file_hash){ //同じのあったら生成し直し
-                        file_hash = crypto.randomBytes(length).toString("hex");
-                        break;
-                    }else if(i == masterData.foods.length - 1){ //同じのなければ抜ける
-                        file_hash_status = false;
-                        // val++;
+    socket.on("send_food_data", function(data){ //フォームからの送信
+        connection.query('UPDATE users SET time = ?, person = ?, total = ? Where storeName = ?', [data.time, data.person, data.total, data.storeName], function(err, result){//データベースアップデート
+            if(err) throw err;
+            connection.query('SELECT * FROM users', function(err, rows){//アップデートしたデータを送信
+                if(err) throw err;
+                socket.broadcast.emit("update_waiting_time", {data: rows});
+            });
+        });
+    });
+
+    socket.on("send_new_store_data", function(data){ //新規作成
+        connection.query('SELECT * FROM users', function(err, rows){
+            if(err) throw err;
+            //ファイル名の生成
+            let length = 16;
+            let file_hash = crypto.randomBytes(length).toString("hex");
+            let file_hash_status = true;
+            if(rows.length != 0){
+                do{ //同じファイル名ができなくなるまで生成し続ける
+                    for(let i = 0; i < rows.length; i++){ //ファイル名固っぱりから見ていく
+                        if(rows[i].url.split("/")[1].split(".")[0] == file_hash){ //同じのあったら生成し直し
+                            file_hash = crypto.randomBytes(length).toString("hex");
+                            break;
+                        }else if(i == rows.length - 1){ //同じのなければ抜ける
+                            file_hash_status = false;
+                        }
                     }
-                    // if(val == masterData.foods.length){
-                    //     file_hash_status = false;
-                    // }
-                }
-            }while(file_hash_status)
-        }
-        data.newStoreData.url = "store/" + file_hash + ".html"; //パス生成
-        masterData.foods.push(data.newStoreData);
+                }while(file_hash_status)
+            }
 
-        fs.writeFileSync(data_file_path, JSON.stringify(masterData, null, "    "));
-        create_new_form(data.newStoreData.food, file_hash); //フォーム生成
-        socket.broadcast.emit("reload", "");
-        socket.emit("reload", "");
+            create_new_form(data.newStoreName, file_hash); //フォーム生成
+            let newUser = {storeName: data.newStoreName, time: 0, person: 0, total: 0, url: "store/" + file_hash + ".html", sellStatus: "selling"};
+            connection.query('INSERT INTO users SET ?', newUser, function(err, res){ if(err) throw err; });//データベースに追加
+            connection.query('SELECT * FROM users', function(err, rows){ io.emit("new_store_data", {data: rows}); });//アップデートしたデータを送信
+        });
     });
 
-    socket.on("edit_delete_func", (data) => { //名称変更，削除
-        edit_foods(data);
-        socket.emit("reload", {old_name:data.store_name, new_name:data.new_store_name});
-        socket.broadcast.emit("reload", {old_name:data.store_name, new_name:data.new_store_name});
+    socket.on("edit_delete_func", function(data){ //名称変更，削除
+        connection.query('SELECT * FROM users Where storeName = ?', [data.store_name], function(err, rows){//目的のダータを探す
+            if(data.edit_status == "edit"){
+                create_new_form(data.new_store_name, rows[0].url.split("/")[1].split(".")[0]); //フォームを上書き
+                connection.query('UPDATE users SET storeName = ? Where storeName = ?', [data.new_store_name, data.store_name], function(err, result){ if(err) throw err; });//データベースアップデート
+            }else{
+                fs.unlink(store_directory_path + rows[0].url.split("/")[1], function(err){ if (err) throw err; });//ファイルを削除
+                connection.query('DELETE FROM users Where storeName = ?', [data.store_name], function(err, result){ if(err) throw err; });//データベースから削除
+            }
+            connection.query('SELECT * FROM users', (err, rows) => {//アップデートしたデータを送信
+                socket.emit("reload", {old_name:data.store_name, new_name:data.new_store_name, data: rows});
+                socket.broadcast.emit("reload", {old_name:data.store_name, new_name:data.new_store_name, data: rows});
+            });
+        });
     });
 
-    socket.on("outOfSold", (data) => { //売り切れ
-        outOfSold_food(data);
-        socket.emit("reload", "");
-        socket.broadcast.emit("reload", "");
+    socket.on("outOfSold", function(data){ //売り切れ
+        connection.query('UPDATE users SET sellStatus = ? Where storeName = ?', ["soldout", data], function(err, result){ if(err) throw err; });//データベースアップデート
+        connection.query('SELECT * FROM users', function(err, rows){//アップデートしたデータを送信
+            if(err) throw err;
+            socket.broadcast.emit("update_soldOut", {data: rows});
+            socket.broadcast.emit("update_waiting_time", {data: rows});
+        });
     });
 });
-
-function outOfSold_food(data){ //売り切れ表示
-    let masterData = JSON.parse(fs.readFileSync(data_file_path, "utf-8"));
-    for(let i = 0; i < masterData.foods.length; i++){
-        if(json_data.foods[i].food == data){ //該当のものを探す
-            json_data.foods[i].sell_status = "soldout"; //売り切れにする
-            break;
-        }
-    }
-    fs.writeFileSync(data_file_path, JSON.stringify(masterData, null, "    "));
-}
-
-function edit_foods(data){ //名称変更，削除
-    let masterData = JSON.parse(fs.readFileSync(data_file_path, "utf-8"));
-    for(let i = 0; i < masterData.foods.length; i++){
-        if(data.store_name == masterData.foods[i].food){ //該当のものを探す
-            if(data.edit_status == "edit"){ //編集の時，名前を変える
-                masterData.foods[i].food = data.new_store_name;
-                create_new_form(data.new_store_name, masterData.foods[i].url.split("/")[1].split(".")[0]); //フォームを上書き
-                break;
-            }else{ //削除の時
-                fs.unlink(store_directory_path + masterData.foods[i].url.split("/")[1], (err) => { //ファイルを削除
-                    if (err) throw err;
-                });
-                masterData.foods.splice(i, 1); //jsonオブジェクトから削除
-                break;
-            }
-        }
-    }
-    fs.writeFileSync(data_file_path, JSON.stringify(masterData, null, "    "));
-}
-
-function sort_foods(food_data){ //待ち時間更新
-    let masterData = JSON.parse(fs.readFileSync(data_file_path, "utf-8"));
-    for(let i = 0; i < masterData.foods.length; i++){
-        if(masterData.foods[i].food == food_data.foodName){ //該当のものを探す
-            masterData.foods[i].time = food_data.time;
-            masterData.foods[i].person = food_data.person;
-            masterData.foods[i].total = food_data.total;
-            break;
-        }
-    }
-    fs.writeFileSync(data_file_path, JSON.stringify(masterData, null, "    "));
-}
 
 function create_new_form(newName, file_name){ //フォーム作成
     let data = `
@@ -129,7 +117,8 @@ function create_new_form(newName, file_name){ //フォーム作成
             <meta name="viewport" content="width=device-width">
             <title></title>
             <link rel="stylesheet" href="store.css">
-            <script src="/waiting-time/socket.io/socket.io.js"></script>
+            <!--<script src="/waiting-time/socket.io/socket.io.js"></script>-->
+            <script src="/socket.io/socket.io.js"></script>
         </head>
         <body>
             <h1>${newName}</h1>
@@ -155,13 +144,13 @@ function create_new_form(newName, file_name){ //フォーム作成
             </dialog>
         </body>
         <script>
-            const socket = io("/", {path: "/" + location.pathname.split("/")[1] + "/socket.io/"});
+            const socket = io();
+            //const socket = io("/", {path: "/" + location.pathname.split("/")[1] + "/socket.io/"});
             let foodName;
             let food_num_of_people = 0;
             let total_person = 0;
             let food_waiting_time_PP = 0;
             let url;
-            let sell_status;
 
             document.querySelector("dialog").addEventListener("click", function(event){
                 if(event.target.closest("#dialog_div") === null){
@@ -169,15 +158,15 @@ function create_new_form(newName, file_name){ //フォーム作成
                 };
             });
 
-            socket.on("reload", function(data){
-                if(foodName == data.old_name && data != ""){
-                    foodName = data.new_name;
-                    document.querySelector("h1").textContent = document.title = foodName;
-                    document.querySelectorAll(".waiting_time_PP_foodName")[0].setAttribute("id", "waiting_time_PP_" + foodName);
-                    document.querySelectorAll(".foodName_peopel")[0].setAttribute("id", foodName + "_people");
+            socket.on("reload", function({old_name, new_name}){
+                if(foodName == old_name){
+                    foodName = new_name;
+                    document.querySelector("h1").textContent = document.title = new_name;
+                    document.querySelectorAll(".waiting_time_PP_foodName")[0].setAttribute("id", "waiting_time_PP_" + new_name);
+                    document.querySelectorAll(".foodName_peopel")[0].setAttribute("id", new_name + "_people");
                 }
             });
-    
+
             function outOfSold_run(){
                 socket.emit("outOfSold", foodName);
                 document.querySelector("dialog").close();
@@ -187,20 +176,21 @@ function create_new_form(newName, file_name){ //フォーム作成
                 document.getElementById("waiting_time_PP_" + foodName).textContent = "null";
                 document.getElementById(foodName + "_people").textContent = "null";
             }
-    
-            async function doAjaxThings(){
+
+            socket.on("store_data", function({data}){
                 foodName = document.querySelector("h1").textContent;
                 document.title = foodName + "-入力フォーム";
                 document.querySelectorAll(".waiting_time_PP_foodName")[0].setAttribute("id", "waiting_time_PP_" + foodName);
                 document.querySelectorAll(".foodName_peopel")[0].setAttribute("id", foodName + "_people");
-                let result = await makeRequest("GET", "./../foods.json");
-                for(let i = 0; i < result.foods.length; i++){
-                    if(result.foods[i].food == foodName){
-                        food_num_of_people = result.foods[i].person;
-                        food_waiting_time_PP = result.foods[i].time;
-                        total_person = result.foods[i].total;
-                        url = result.foods[i].url;
-                        sell_status = result.foods[i].sell_status
+                let result = data;
+                let sell_status;
+                for(let i = 0; i < result.length; i++){
+                    if(result[i].storeName == foodName){
+                        food_num_of_people = result[i].person;
+                        food_waiting_time_PP = result[i].time;
+                        total_person = result[i].total;
+                        url = result[i].url;
+                        sell_status = result[i].sellStatus
                     }
                 }
                 document.getElementById("increase_waiting_time").setAttribute("onclick", "increase_waiting_time()");
@@ -210,82 +200,57 @@ function create_new_form(newName, file_name){ //フォーム作成
                 if(sell_status == "soldout"){
                     document.getElementById("waiting_time_PP_" + foodName).textContent = "null";
                     document.getElementById(foodName + "_people").textContent = "null";
+                    document.querySelectorAll("button").forEach(data => {
+                        data.disabled = "disable";
+                    });
                 }else{
                     document.getElementById("waiting_time_PP_" + foodName).textContent = food_waiting_time_PP;
                     document.getElementById(foodName + "_people").textContent = food_num_of_people;
                 }
-                if(sell_status == "soldout"){
-                    document.querySelectorAll("button").forEach(data => {
-                        data.disabled = "disable";
-                    });
-                }
-            }
-    
-            function makeRequest(method, url){
-                return new Promise(function (resolve, reject){
-                    let xhr = new XMLHttpRequest();
-                    xhr.open(method, url);
-                    xhr.onload = function (){
-                        if(this.status >= 200 && this.status < 300){
-                            resolve(JSON.parse(xhr.response));
-                        }else{
-                            reject({
-                                status: this.status,
-                                statusText: xhr.statusText
-                            });
-                        }
-                    }
-                    xhr.onerror = function(){
-                        reject({
-                            status: this.status,
-                            statusText: this.statusText
-                        });
-                    }
-                    xhr.send();
-                });
-            }
-    
-            document.addEventListener("DOMContentLoaded", function(){
-                doAjaxThings();
             });
-    
+
+            document.addEventListener("DOMContentLoaded", function(){
+                socket.emit("get_store_data");
+            });
+
             function increase_waiting_time(){
                 const waiting_time_PP = document.getElementById("waiting_time_PP_" + foodName);
                 food_waiting_time_PP = food_waiting_time_PP + 5;
                 waiting_time_PP.textContent = food_waiting_time_PP;
                 if(food_num_of_people !== 0){
-                    socket.emit("send_food_data", {foodName: foodName, time: food_waiting_time_PP, person: food_num_of_people, total: total_person, url:url});
+                    socket.emit("send_food_data", {storeName: foodName, time: food_waiting_time_PP, person: food_num_of_people, total: total_person});
                 }
             }
-    
+
             function decrease_waiting_time(){
                 if(food_waiting_time_PP !== 0){
                     const waiting_time_PP = document.getElementById("waiting_time_PP_" + foodName);
                     food_waiting_time_PP = food_waiting_time_PP - 5;
                     waiting_time_PP.textContent = food_waiting_time_PP;
                     if(food_num_of_people !== 0){
-                        socket.emit("send_food_data", {foodName: foodName, time: food_waiting_time_PP, person: food_num_of_people, total: total_person, url:url});
+                        socket.emit("send_food_data", {storeName: foodName, time: food_waiting_time_PP, person: food_num_of_people, total: total_person});
                     }
                 }
             }
-    
+
             function increase_people(){
                 total_person++;
                 const waiting_people = document.getElementById(foodName + "_people");
                 food_num_of_people++;
                 waiting_people.textContent = food_num_of_people;
-                socket.emit("send_food_data", {foodName: foodName, time: food_waiting_time_PP, person: food_num_of_people, total: total_person, url:url});
+                socket.emit("send_food_data", {storeName: foodName, time: food_waiting_time_PP, person: food_num_of_people, total: total_person});
             }
-    
+
             function decrease_people(){
                 if(food_num_of_people !== 0){
                     const waiting_people = document.getElementById(foodName + "_people");
                     food_num_of_people--;
                     waiting_people.textContent = food_num_of_people;
-                    socket.emit("send_food_data", {foodName: foodName, time: food_waiting_time_PP, person: food_num_of_people, total: total_person, url:url});
+                    socket.emit("send_food_data", {storeName: foodName, time: food_waiting_time_PP, person: food_num_of_people, total: total_person});
                 }
             }
         </script>
-    </html>`;
+    </html>
+    `;
     fs.writeFileSync(store_directory_path + file_name + ".html", data);
 }

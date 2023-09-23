@@ -4,7 +4,8 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width">
         <title>管理</title>
-        <script src="/waiting-time/socket.io/socket.io.js"></script>
+        <script src="socket.io/socket.io.js"></script>
+        <!-- <script src="/waiting-time/socket.io/socket.io.js"></script> -->
         <link rel="stylesheet" href="mgmt.css">
         <style id="success_alert"></style>
     </head>
@@ -67,9 +68,8 @@
         const edit_store_name_div = document.getElementById("edit_store_name_div");
         const delete_store_div = document.getElementById("delete_store_div");
         const btn_edit_ok = document.getElementById("btn_edit_ok");
-        const socket = io("/", {path: "/" + location.pathname.split("/")[1] + "/socket.io/"});
-        let store_data = [];
-        const json_path = "./foods.json";
+        const socket = io();
+        // const socket = io("/", {path: "/" + location.pathname.split("/")[1] + "/socket.io/"});
 
         document.querySelectorAll("dialog").forEach(data => { //ダイアログ要素の外をクリックした時ダイアログを閉じる
             data.addEventListener("click", function(event){
@@ -127,80 +127,28 @@
             }
         });
 
-        socket.on("reload", () => {
-            doAjaxThings();
-        });
-
-        socket.on("update_waiting_time", (foodname) => {
-            update_waiting_time(foodname);
-        });
-
         function add_store(){ //新規追加
             let new_store_name = document.getElementById("store_name").value;
             document.getElementById('store_name').value = '';
             document.querySelector("dialog").close();
-            let new_store_data = {
-                food : new_store_name,
-                time : 0,
-                person : 0,
-                total : 0,
-                url: "",
-                sell_status: "selling",
-            }
-            store_data.push();
-            show_store_detail({foods:store_data}, false);
-            socket.emit("send_new_store_data", {newStoreData: new_store_data});
+            socket.emit("send_new_store_data", {newStoreName: new_store_name});
         }
 
-        function makeRequest(method, url){
-            return new Promise(function (resolve, reject){
-                let xhr = new XMLHttpRequest();
-                xhr.open(method, url);
-                xhr.onload = function (){
-                    if(this.status >= 200 && this.status < 300){
-                        resolve(JSON.parse(xhr.response));
-                    }else{
-                        reject({
-                            status: this.status,
-                            statusText: xhr.statusText
-                        });
-                    }
-                }
-                xhr.onerror = function (){
-                    reject({
-                        status: this.status,
-                        statusText: this.statusText
-                    });
-                }
-                xhr.send();
-            });
-        }
-
-        async function doAjaxThings(){
-            let result = await makeRequest("GET", json_path);
-            if(!navigator.userAgent.match(/iPhone|Android.+Mobile/)){
-                document.querySelector("#success_alert").insertAdjacentHTML("beforeend", `td {width: 130px}`);
-            }
-            show_store_detail(result, true);
-        }
+        socket.on("store_data", function({data}){ show_store_detail(data); });
+        socket.on("new_store_data", function({data}){ show_store_detail(data); });
+        socket.on("update_waiting_time", function({data}){ show_store_detail(data); });
+        socket.on("reload", function({data}){ show_store_detail(data); });
 
         document.addEventListener("DOMContentLoaded", function(){ //ページ読み込み時
-            document.getElementById("main_table").style.height = window.innerHeight - 190 + "px";
-            doAjaxThings();
-        });
-
-        async function update_waiting_time(foodName){ //更新された時
-            let data = await makeRequest("GET", json_path);
-            for(let i = 0; i < data.foods.length; i++){
-                if(data.foods[i].food == foodName){ //該当する店を更新
-                    let waiting_time = document.getElementById(foodName + "_waiting_time"); //現在の待ち時間
-                    let total_purchasers = document.getElementById(foodName + "_total_purchasers"); //トータル来店者
-                    waiting_time.textContent = data.foods[i].time * data.foods[i].person;
-                    total_purchasers.textContent = data.foods[i].total;
-                    break;
-                }
+            let width = window.innerWidth - 15;
+            if(!navigator.userAgent.match(/iPhone|Android.+Mobile/)){
+                document.querySelector("#success_alert").insertAdjacentHTML("beforeend", `td {width: 130px}`);
+                width = 660;
             }
-        }
+            document.getElementById("main_table").style.height = window.innerHeight - 190 + "px";
+            document.getElementById("main_table").style.width = width + "px";
+            socket.emit("get_store_data");
+        });
 
         async function CoptToClipboard(e){ //各店の入力フォームのURLをクリップボードにコピーする
             let url_arr = e.target.value.split(".");
@@ -208,16 +156,15 @@
             navigator.clipboard.writeText(store_url); //クリップボードにコピー
 
             /*x,y位置の調整をゴニョゴニョと*/
-            let left = e.target.getBoundingClientRect().x + window.pageXOffset - 1490;
-            let top = e.target.getBoundingClientRect().top + e.target.clientHeight + window.pageYOffset + 5;
-            if(navigator.userAgent.match(/iPhone|Android.+Mobile/)) left = 70;
+            let left = e.target.getBoundingClientRect().x + /*window.pageXOffset +*/ e.target.getBoundingClientRect().width/2 - 30;
+            let top = e.target.getBoundingClientRect().top + e.target.clientHeight /*+ window.pageYOffset*/ + 5;
             let success_alert_style = `
                 .copy_bt_complete::before {
-	                top: ${top}px;
 	                left: ${left}px;
+	                top: ${top}px;
                 }
                 .copy_bt_complete::after {
-	                left: ${left}px;
+	                left: ${left + 25}px;
 	                top: ${top - 3}px;
                 }
             `;
@@ -229,80 +176,64 @@
 	        }, 1500);
         }
 
-        function show_store_detail(data, status){
+        function show_store_detail(data){
             const store_list = document.getElementById("store_list");
             store_list.textContent = "";
+            if(data.length != 0){
+                for(let i = 0; i < data.length; i++){
+                    let tr = document.createElement("tr"); //出店毎の行
 
-            if(status){ //情報に大きく更新があった場合
-                store_data = [];
+                    let td0 = document.createElement("td"); //出店名
+                    td0.textContent = data[i].storeName;
+                    td0.style.padding = "0px 5px";
+
+                    let td1 = document.createElement("td"); //待ち時間
+                    let td4 = document.createElement("td"); //販売状況
+                    td1.setAttribute("id", data[i].storeName + "_waiting_time");
+                    if(data[i].sellStatus == "soldout"){
+                        td1.textContent = "null";
+                        td4.textContent = "売り切れ";
+                    }else{
+                        td1.textContent = data[i].time * data[i].person;
+                        td4.textContent = "販売中";
+                    }
+
+                    let td2 = document.createElement("td"); //総購入者数
+                    td2.textContent = data[i].total;
+                    td2.setAttribute("id", data[i].storeName + "_total_purchasers");
+
+                    let td3 = document.createElement("td"); //入力フォームurl
+                    let td3_btn = document.createElement("button"); //url
+                    td3_btn.textContent = "出店フォームリンクをコピー";
+                    td3_btn.value = data[i].url;
+                    td3_btn.setAttribute("onclick", "CoptToClipboard(event)");
+                    td3.appendChild(td3_btn);
+
+                    let td5 = document.createElement("td"); //編集削除
+                    let td5_btn_edit = document.createElement("button"); //編集
+                    td5_btn_edit.textContent = "名称変更";
+                    td5_btn_edit.value = data[i].storeName;
+                    td5_btn_edit.setAttribute("onclick", "edit_func(event)");
+                    td5_btn_edit.style.margin = "5px 2px";
+                    let td5_btn_del = document.createElement("button"); //削除
+                    td5_btn_del.textContent = "削除";
+                    td5_btn_del.value = data[i].storeName;
+                    td5_btn_del.setAttribute("onclick", "delete_func(event)");
+                    td5_btn_del.style.margin = "5px 2px";
+                    td5.appendChild(td5_btn_edit);
+                    td5.appendChild(td5_btn_del);
+
+                    tr.appendChild(td0);
+                    tr.appendChild(td1);
+                    tr.appendChild(td2);
+                    tr.appendChild(td3);
+                    tr.appendChild(td4);
+                    tr.appendChild(td5);
+                    store_list.appendChild(tr);
+                }
+
+                document.getElementById("scroll_bar_width").style.width = document.getElementsByTagName("thead")[0].clientWidth - 5 + "px";
             }
-            for(let i = 0; i < data.foods.length; i++){
-                if(status){ //情報に大きく更新があった場合
-                    store_data.push({
-                        food : data.foods[i].food,
-                        time : data.foods[i].time,
-                        person : data.foods[i].person,
-                        total : data.foods[i].total,
-                        url : data.foods[i].url,
-                        sell_status : data.foods[i].sell_status,
-                    });
-                }
-                let tr = document.createElement("tr"); //出店毎の行
-
-                let td0 = document.createElement("td"); //出店名
-                td0.textContent = data.foods[i].food;
-                td0.style.padding = "0px 5px";
-
-                let td1 = document.createElement("td"); //待ち時間
-                td1.setAttribute("id", data.foods[i].food + "_waiting_time");
-                if(data.foods[i].sell_status == "soldout"){
-                    td1.textContent = "null";
-                }else{
-                    td1.textContent = data.foods[i].time * data.foods[i].person;
-                }
-
-                let td2 = document.createElement("td"); //総購入者数
-                td2.textContent = data.foods[i].total;
-                td2.setAttribute("id", data.foods[i].food + "_total_purchasers");
-
-                let td3 = document.createElement("td"); //入力フォームurl
-                let td3_btn = document.createElement("button"); //url
-                td3_btn.textContent = "出店フォームリンクをコピー";
-                td3_btn.value = data.foods[i].url;
-                td3_btn.setAttribute("onclick", "CoptToClipboard(event)");
-                td3.appendChild(td3_btn);
-
-                let td4 = document.createElement("td"); //販売状況
-                if(data.foods[i].sell_status == "soldout"){
-                    td4.textContent = "売り切れ";
-                }else{
-                    td4.textContent = "販売中";
-                }
-
-                let td5 = document.createElement("td"); //編集削除
-                let td5_btn_edit = document.createElement("button"); //編集
-                td5_btn_edit.textContent = "名称変更";
-                td5_btn_edit.value = data.foods[i].food;
-                td5_btn_edit.setAttribute("onclick", "edit_func(event)");
-                td5_btn_edit.style.margin = "5px 2px";
-                let td5_btn_del = document.createElement("button"); //削除
-                td5_btn_del.textContent = "削除";
-                td5_btn_del.value = data.foods[i].food;
-                td5_btn_del.setAttribute("onclick", "delete_func(event)");
-                td5_btn_del.style.margin = "5px 2px";
-                td5.appendChild(td5_btn_edit);
-                td5.appendChild(td5_btn_del);
-
-                tr.appendChild(td0);
-                tr.appendChild(td1);
-                tr.appendChild(td2);
-                tr.appendChild(td3);
-                tr.appendChild(td4);
-                tr.appendChild(td5);
-                store_list.appendChild(tr);
-            }
-
-            document.getElementById("scroll_bar_width").style.width = document.getElementsByTagName("thead")[0].clientWidth - 5 + "px";
         }
     </script>
 </html>
