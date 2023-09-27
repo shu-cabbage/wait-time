@@ -4,8 +4,15 @@
 
 ## Install
 mysqlをインストールする。  
+userを作成する。  
+まずrootでログインする。  
+```sh
+mysql> CREATE USER 'new user'@'localhost' IDENTIFIED BY 'new user password';
+mysql> GRANT ALL PRIVILEGES ON * . * TO 'new user'@'localhost';
+mysql> FLUSH PRIVILEGES;
+mysql> ALTER USER 'new user'@'localhost' IDENTIFIED WITH mysql_native_password BY 'new user password';
+```
 databaseとtableを作る。  
-以下macでのコマンド。  
 ```sh
 mysql> CREATE DATABASE waitTime;
 mysql> USE waitTime;
@@ -16,7 +23,7 @@ git cloneする。
 
 ## Use
 使い方とセッティング  
-M2 proでのみ確認済み
+M2pro macmini、i7 MBP、ubuntu serverで確認済み
 ### サーバ側
 envファイルにデータベースのログイン項目を書く。  
 ``node server.js``で走らせる。
