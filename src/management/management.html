@@ -4,8 +4,8 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width">
         <title>管理</title>
-        <script src="socket.io/socket.io.js"></script>
-        <!-- <script src="/waiting-time/socket.io/socket.io.js"></script> -->
+        <!-- <script src="socket.io/socket.io.js"></script> -->
+        <script src="/wait-time/socket.io/socket.io.js"></script>
         <link rel="stylesheet" href="mgmt.css">
         <style id="success_alert"></style>
     </head>
@@ -68,8 +68,9 @@
         const edit_store_name_div = document.getElementById("edit_store_name_div");
         const delete_store_div = document.getElementById("delete_store_div");
         const btn_edit_ok = document.getElementById("btn_edit_ok");
-        const socket = io();
-        // const socket = io("/", {path: "/" + location.pathname.split("/")[1] + "/socket.io/"});
+        // const socket = io();
+        let path = location.pathname.split("/")[1];
+        const socket = io("/", {path: "/" + path + "/socket.io/"});
 
         document.querySelectorAll("dialog").forEach(data => { //ダイアログ要素の外をクリックした時ダイアログを閉じる
             data.addEventListener("click", function(event){
@@ -152,7 +153,7 @@
 
         async function CoptToClipboard(e){ //各店の入力フォームのURLをクリップボードにコピーする
             let url_arr = e.target.value.split(".");
-            let store_url = location.protocol + "//" + location.host + "/" + url_arr[0] + "." + url_arr[1]; //url生成
+            let store_url = location.protocol + "//"+ location.host+ "/" + path + "/" + url_arr[0] + "." + url_arr[1]; //url生成
             navigator.clipboard.writeText(store_url); //クリップボードにコピー
 
             /*x,y位置の調整をゴニョゴニョと*/

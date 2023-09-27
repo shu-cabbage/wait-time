@@ -3,7 +3,7 @@
 出店の待ち時間を表示する
 
 ## Install
-mysqlをインストールする。  
+mysql、nginxをインストールする。  
 userを作成する。  
 まずrootでログインする。  
 ```sh
@@ -18,7 +18,18 @@ mysql> CREATE DATABASE waitTime;
 mysql> USE waitTime;
 mysql> CREATE TABLE users (storeName TEXT, time INT UNSIGNED, person INT UNSIGNED, total INT UNSIGNED, url TEXT, sellStatus TEXT);
 ```  
-git cloneする。  
+nginx.confにlocationを書く。  
+```nginx
+location /wait-time/ {
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header Host $host;
+    proxy_pass http://localhost:3000/;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+}
+```
+git cloneして、
 ``npm install``
 
 ## Use

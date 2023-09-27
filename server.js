@@ -29,8 +29,9 @@ app.get("/mgmt", function(req, res){
     res.sendFile(__dirname + "/src/management/management.html");
 });
 
-app.use(express.static(__dirname + "/src/management"));
-app.use(express.static(__dirname + "/src"));
+app.use(express.static(__dirname + "/src/management/"));
+app.use(express.static(__dirname + "/src/store/"));
+app.use(express.static(__dirname + "/src/"));
 
 server.listen(PORT, function(){
     console.log("server on port %d", PORT);
@@ -117,8 +118,8 @@ function create_new_form(newName, file_name){ //フォーム作成
             <meta name="viewport" content="width=device-width">
             <title></title>
             <link rel="stylesheet" href="store.css">
-            <!--<script src="/waiting-time/socket.io/socket.io.js"></script>-->
-            <script src="/socket.io/socket.io.js"></script>
+            <script src="/wait-time/socket.io/socket.io.js"></script>
+            <!--<script src="/socket.io/socket.io.js"></script>-->
         </head>
         <body>
             <h1>${newName}</h1>
@@ -144,8 +145,8 @@ function create_new_form(newName, file_name){ //フォーム作成
             </dialog>
         </body>
         <script>
-            const socket = io();
-            //const socket = io("/", {path: "/" + location.pathname.split("/")[1] + "/socket.io/"});
+            //const socket = io();
+            const socket = io("/", {path: "/" + location.pathname.split("/")[1] + "/socket.io/"});
             let foodName;
             let food_num_of_people = 0;
             let total_person = 0;
