@@ -1,12 +1,5 @@
 {
     "foods": [
-        {
-            "food": "ra",
-            "time": 5,
-            "person": 3,
-            "total": 4,
-            "url": "store/338f0827b022bec94a60ec59880a071f.html",
-            "sell_status": "selling"
-        }
+        {}
     ]
 }
